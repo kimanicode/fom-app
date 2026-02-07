@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { api } from '../../lib/api';
@@ -6,18 +6,20 @@ import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '../../constants/theme';
 
 export default function FeedScreen() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { token } = useAuthStore();
-  const insets = useSafeAreaInsets();
   const [savedIds, setSavedIds] = useState<Record<string, boolean>>({});
-  const [segment, setSegment] = useState<'quests' | 'stories'>('quests');
-  const [stories, setStories] = useState<any[]>([]);
+  const [segment, setSegment] = useState<'quests' | 'joined'>('quests');
+  const [joinedQuests, setJoinedQuests] = useState<any[]>([]);
   const [joinedIds, setJoinedIds] = useState<Record<string, boolean>>({});
+  const [unreadCount, setUnreadCount] = useState(0);
+  
 
   const shuffle = <T,>(arr: T[]) => {
     const copy = [...arr];
@@ -42,11 +44,15 @@ export default function FeedScreen() {
           const loc = await Location.getCurrentPositionAsync({});
           coords = loc.coords;
         }
-        const feed = await api.feed(coords?.latitude, coords?.longitude);
+        const [feed, joined, saved, unread] = await Promise.all([
+          api.feed(coords?.latitude, coords?.longitude),
+          api.getJoinedQuests(),
+          api.getSavedQuests(),
+          api.notificationsUnread(),
+        ]);
         setItems(shuffle(feed));
-        const storyList = await api.stories();
-        setStories(shuffle(storyList as any[]));
-        const saved = await api.getSavedQuests();
+        setJoinedQuests(shuffle(joined as any[]));
+        setUnreadCount((unread as any[]).length || 0);
         const map: Record<string, boolean> = {};
         (saved as any[]).forEach((q: any) => {
           map[q.id] = true;
@@ -61,10 +67,18 @@ export default function FeedScreen() {
     load();
   }, [token]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!token) return;
+      api.notificationsUnread()
+        .then((unread: any) => setUnreadCount((unread as any[]).length || 0))
+        .catch(console.warn);
+    }, [token])
+  );
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 16) }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <View style={styles.topRow}>
         <View style={styles.locationPill}>
           <Ionicons name="location-outline" size={14} color="#E56A3C" />
@@ -77,6 +91,11 @@ export default function FeedScreen() {
           </Pressable>
           <Pressable style={styles.iconButton} onPress={() => router.push('/notifications')}>
             <Ionicons name="notifications-outline" size={18} color="#7C6F66" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
@@ -90,10 +109,10 @@ export default function FeedScreen() {
           </Text>
         </Pressable>
         <Pressable
-          style={[styles.segmentTab, segment === 'stories' && styles.segmentActive]}
-          onPress={() => setSegment('stories')}>
-          <Text style={segment === 'stories' ? styles.segmentTextActive : styles.segmentText}>
-            Quest Stories
+          style={[styles.segmentTab, segment === 'joined' && styles.segmentActive]}
+          onPress={() => setSegment('joined')}>
+          <Text style={segment === 'joined' ? styles.segmentTextActive : styles.segmentText}>
+            Joined Quests
           </Text>
         </Pressable>
       </View>
@@ -106,18 +125,31 @@ export default function FeedScreen() {
         ))}
       </View>
 
-      {loading && <Text style={styles.muted}>Loading your quests and stories...</Text>}
+      {loading && <Text style={styles.muted}>Loading your quests...</Text>}
       {!loading && !token && <Text style={styles.muted}>Log in to see your feed.</Text>}
       {!loading && token && items.length === 0 && <Text style={styles.muted}>No feed items yet.</Text>}
 
-      {segment === 'stories' && (
+      {segment === 'joined' && (
         <View style={styles.storyRow}>
-          {stories.map((story) => (
-            <View key={story.id} style={styles.storyItem}>
-              <Image source={{ uri: story.mediaUrl }} style={styles.storyImage} />
-              <Text style={styles.storyName}>{story.user?.alias || 'Story'}</Text>
-            </View>
+          {joinedQuests.map((item) => (
+            <Pressable
+              key={item.instanceId}
+              style={styles.storyItem}
+              onPress={() =>
+                router.push(`/quest/${item.quest?.id}?instanceId=${item.instanceId}&joined=1`)
+              }>
+              <Image
+                source={{
+                  uri:
+                    item.quest?.imageUrl ||
+                    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
+                }}
+                style={styles.storyImage}
+              />
+              <Text style={styles.storyName}>{item.quest?.title || 'Quest'}</Text>
+            </Pressable>
           ))}
+          {joinedQuests.length === 0 && <Text style={styles.muted}>No joined quests yet.</Text>}
         </View>
       )}
 
@@ -146,8 +178,8 @@ export default function FeedScreen() {
               <Pressable
                 style={styles.saveButton}
                 onPress={async () => {
-                  await api.saveQuest(item.data.id);
-                  setSavedIds((prev) => ({ ...prev, [item.data.id]: true }));
+                  const res = await api.saveQuest(item.data.id);
+                  setSavedIds((prev) => ({ ...prev, [item.data.id]: res.saved }));
                 }}>
                 <Ionicons
                   name={savedIds[item.data.id] ? 'bookmark' : 'bookmark-outline'}
@@ -205,12 +237,16 @@ export default function FeedScreen() {
           </View>
         </Pressable>
       ))}
-    </ScrollView>
+
+      {/* Stories modal removed; replaced by Joined Quests */}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
+  scroll: { flex: 1 },
   content: { padding: 16, gap: 16 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   locationPill: {
@@ -231,7 +267,21 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#EFE7E0',
+    position: 'relative',
   },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#D62F2F',
+    borderRadius: 999,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
   segment: {
     flexDirection: 'row',
     backgroundColor: '#EFE7E0',
@@ -297,4 +347,31 @@ const styles = StyleSheet.create({
   storyItem: { alignItems: 'center', gap: 6 },
   storyImage: { width: 70, height: 70, borderRadius: 20 },
   storyName: { fontSize: 11, color: '#7C6F66' },
+  storyModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storyFull: { width: '100%', height: '100%', resizeMode: 'cover' },
+  storyHeader: {
+    position: 'absolute',
+    top: 40,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  storyClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storyUser: { color: '#FFF', fontWeight: '600' },
+  storyTapLeft: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '50%' },
+  storyTapRight: { position: 'absolute', right: 0, top: 0, bottom: 0, width: '50%' },
 });

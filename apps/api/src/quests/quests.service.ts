@@ -160,12 +160,15 @@ export class QuestsService {
   }
 
   async save(templateId: string, userId: string) {
-    await this.prisma.save.upsert({
+    const existing = await this.prisma.save.findUnique({
       where: { questId_userId: { questId: templateId, userId } },
-      update: {},
-      create: { questId: templateId, userId },
     });
-    return { ok: true };
+    if (existing) {
+      await this.prisma.save.delete({ where: { id: existing.id } });
+      return { saved: false };
+    }
+    await this.prisma.save.create({ data: { questId: templateId, userId } });
+    return { saved: true };
   }
 
   async redo(templateId: string, userId: string, dto: RedoQuestDto) {

@@ -30,6 +30,7 @@ model User {
   saves       Save[]
   ratings     Rating[]
   notifications Notification[]
+  messages    ChatMessage[]
 
   reports     Report[] @relation("Reporter")
   reportedBy  Report[] @relation("ReportedUser")
@@ -109,6 +110,7 @@ model QuestInstance {
   posts        Post[]
   ratings      Rating[]
   checkins     Checkin[]
+  messages     ChatMessage[]
 }
 
 model QuestParticipant {
@@ -235,4 +237,17 @@ model Notification {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  instanceId String
+  userId     String
+  text       String
+  createdAt  DateTime @default(now())
+
+  instance QuestInstance @relation(fields: [instanceId], references: [id])
+  user     User          @relation(fields: [userId], references: [id])
+
+  @@index([instanceId, createdAt])
 }

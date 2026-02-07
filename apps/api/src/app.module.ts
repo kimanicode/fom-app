@@ -11,6 +11,7 @@ import { ReportsModule } from './reports/reports.module';
 import { BlocksModule } from './blocks/blocks.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MediaModule } from './media/media.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { MediaModule } from './media/media.module';
     BlocksModule,
     NotificationsModule,
     MediaModule,
+    ChatModule,
   ],
 })
 export class AppModule {}

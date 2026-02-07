@@ -26,6 +26,12 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('users/me/joined')
+  getJoined(@CurrentUser() user: { id: string }) {
+    return this.users.listJoined(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('users/me')
   createProfile(@CurrentUser() user: { id: string }, @Body() dto: UpdateProfileDto) {
     return this.users.updateProfile(user.id, dto);

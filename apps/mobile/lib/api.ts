@@ -29,6 +29,8 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   }),
+  forgotPassword: (email: string) =>
+    apiFetch('/auth/forgot', { method: 'POST', body: JSON.stringify({ email }) }),
   getMe: () => apiFetch('/users/me'),
   updateProfile: (payload: any) => apiFetch('/users/me', { method: 'PATCH', body: JSON.stringify(payload) }),
   listInterests: () => apiFetch('/interests'),
@@ -43,9 +45,14 @@ export const api = {
   joinQuest: (id: string) => apiFetch(`/quests/${id}/join`, { method: 'POST' }),
   saveQuest: (id: string) => apiFetch(`/quests/${id}/save`, { method: 'POST' }),
   getSavedQuests: () => apiFetch('/users/me/saves'),
+  getJoinedQuests: () => apiFetch('/users/me/joined'),
   redoQuest: (id: string, startTime: string) => apiFetch(`/quests/${id}/redo`, { method: 'POST', body: JSON.stringify({ startTime }) }),
   notifications: () => apiFetch('/notifications'),
   markNotificationsRead: () => apiFetch('/notifications/read', { method: 'POST' }),
+  notificationsUnread: () => apiFetch('/notifications?unread=1'),
+  getChat: (instanceId: string) => apiFetch(`/quest-instances/${instanceId}/chat`),
+  sendChat: (instanceId: string, text: string) =>
+    apiFetch(`/quest-instances/${instanceId}/chat`, { method: 'POST', body: JSON.stringify({ text }) }),
   checkin: (id: string, lat: number, lng: number) => apiFetch(`/quest-instances/${id}/checkin`, { method: 'POST', body: JSON.stringify({ lat, lng }) }),
   complete: (id: string) => apiFetch(`/quest-instances/${id}/complete`, { method: 'POST', body: JSON.stringify({}) }),
   createPost: (id: string, payload: any) => apiFetch(`/quest-instances/${id}/posts`, { method: 'POST', body: JSON.stringify(payload) }),

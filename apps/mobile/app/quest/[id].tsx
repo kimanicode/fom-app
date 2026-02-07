@@ -1,16 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { api } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function QuestDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, instanceId: instanceParam, joined: joinedParam } = useLocalSearchParams<{
+    id: string;
+    instanceId?: string;
+    joined?: string;
+  }>();
   const [quest, setQuest] = useState<any>();
   const [instanceId, setInstanceId] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const topOffset = Math.max(insets.top, 16);
 
@@ -18,6 +24,24 @@ export default function QuestDetailScreen() {
     if (!id) return;
     api.getQuest(String(id)).then(setQuest).catch(console.warn);
   }, [id]);
+
+  useEffect(() => {
+    if (instanceParam) {
+      setInstanceId(String(instanceParam));
+      setJoined(true);
+      return;
+    }
+    if (joinedParam === '1') {
+      setJoined(true);
+    }
+    api.getJoinedQuests().then((list: any) => {
+      const hit = (list as any[]).find((item) => item.quest?.id === String(id));
+      if (hit) {
+        setJoined(true);
+        setInstanceId(hit.instanceId);
+      }
+    });
+  }, [instanceParam, joinedParam, id]);
 
   const startDate = useMemo(() => {
     if (!quest?.startTime) return '';
@@ -40,8 +64,9 @@ export default function QuestDetailScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }}>
-      <View style={[styles.hero, { paddingTop: topOffset }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 24 }}>
+      <View style={styles.hero}>
         <Image
           source={{
             uri:
@@ -51,15 +76,32 @@ export default function QuestDetailScreen() {
           style={styles.heroImage}
         />
         <View style={styles.heroOverlay} />
-        <Pressable style={[styles.backButton, { top: topOffset }]} onPress={() => router.back()}>
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={18} color="#3C2F25" />
         </Pressable>
-        <View style={[styles.heroActions, { top: topOffset }]}>
-          <Pressable style={styles.iconButton}>
+        <View style={styles.heroActions}>
+          <Pressable
+            style={styles.iconButton}
+            onPress={() =>
+              Share.share({
+                message: `Join my quest: ${quest.title}\n${quest.description}\nLocation: ${quest.location?.placeName || ''}\nLink: fom://quest/${quest.id}`,
+              })
+            }>
             <Ionicons name="share-social-outline" size={18} color="#3C2F25" />
           </Pressable>
-          <Pressable style={styles.iconButton} onPress={() => api.saveQuest(quest.id)}>
-            <Ionicons name="bookmark-outline" size={18} color="#3C2F25" />
+          <Pressable
+            style={styles.iconButton}
+            onPress={async () => {
+              const res = await api.saveQuest(quest.id);
+              setSaved(res.saved);
+              setToast(res.saved ? 'Saved successfully' : 'Removed from saved');
+              setTimeout(() => setToast(null), 1500);
+            }}>
+            <Ionicons
+              name={saved ? 'bookmark' : 'bookmark-outline'}
+              size={18}
+              color={saved ? '#2F6B4F' : '#3C2F25'}
+            />
           </Pressable>
         </View>
         <View style={styles.heroContent}>
@@ -127,27 +169,43 @@ export default function QuestDetailScreen() {
         </View>
       </View>
 
+      {/* Chat CTA is handled in the bottom bar when joined */}
+
       <View style={styles.bottomBar}>
         <Pressable style={styles.circleAction} onPress={() => api.saveQuest(quest.id)}>
           <Ionicons name="bookmark-outline" size={18} color="#3C2F25" />
         </Pressable>
-        <Button
-          label={joined ? 'Joined' : 'Join Quest'}
-          variant={joined ? 'secondary' : 'primary'}
-          onPress={async () => {
-            if (joined) return;
-            const res = await api.joinQuest(quest.id);
-            setInstanceId(res.instanceId);
-            setJoined(true);
-          }}
-        />
+        {joined && instanceId ? (
+          <Pressable
+            style={styles.primaryChat}
+            onPress={() => router.push(`/chat/${instanceId}`)}>
+            <Text style={styles.primaryChatText}>Open Quest Chat</Text>
+          </Pressable>
+        ) : (
+          <Button
+            label="Join Quest"
+            variant="primary"
+            onPress={async () => {
+              const res = await api.joinQuest(quest.id);
+              setInstanceId(res.instanceId);
+              setJoined(true);
+            }}
+          />
+        )}
       </View>
-    </ScrollView>
+      {toast && (
+        <View style={styles.toast}>
+          <Text style={styles.toastText}>{toast}</Text>
+        </View>
+      )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9F6F2' },
+  scroll: { flex: 1 },
   hero: { position: 'relative' },
   heroImage: { width: '100%', height: 260 },
   heroOverlay: {
@@ -281,5 +339,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  primaryChat: {
+    flex: 1,
+    backgroundColor: '#2F6B4F',
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  primaryChatText: { color: '#FFF', fontWeight: '700' },
+  toast: {
+    position: 'absolute',
+    bottom: 24,
+    alignSelf: 'center',
+    backgroundColor: '#2F6B4F',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  toastText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
   muted: { color: '#64748B' },
 });

@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api, apiFetch } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/auth';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen() {
   const { profile, setProfile, signOut } = useAuthStore();
   const [loading, setLoading] = useState(true);
-  const insets = useSafeAreaInsets();
   const [showAvatar, setShowAvatar] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savedQuests, setSavedQuests] = useState<any[]>([]);
@@ -20,19 +20,25 @@ export default function ProfileScreen() {
   const uploadUrl = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_URL || '';
   const uploadPreset = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || '';
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const me = await api.getMe();
-        setProfile(me);
-        const saved = await api.getSavedQuests();
-        setSavedQuests(saved as any[]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+  const load = useCallback(async () => {
+    try {
+      const [me, saved] = await Promise.all([api.getMe(), api.getSavedQuests()]);
+      setProfile(me);
+      setSavedQuests(saved as any[]);
+    } finally {
+      setLoading(false);
+    }
   }, [setProfile]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   if (loading) {
     return (
@@ -43,9 +49,8 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 16) }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <View style={styles.profileHeader}>
         <View style={styles.headerGradient} />
         <Pressable onPress={() => router.push('/settings')} style={styles.settingsButton}>
@@ -154,7 +159,7 @@ export default function ProfileScreen() {
           <View style={[styles.statIcon, { backgroundColor: '#FFEFD6' }]}>
             <Ionicons name="bookmark" size={14} color="#D97706" />
           </View>
-          <Text style={styles.statValue}>8</Text>
+          <Text style={styles.statValue}>{savedQuests.length}</Text>
           <Text style={styles.statLabel}>Saved</Text>
         </View>
       </View>
@@ -220,12 +225,14 @@ export default function ProfileScreen() {
           </View>
         </Pressable>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9F6F2' },
+  scroll: { flex: 1 },
   content: { padding: 18, gap: 14 },
   muted: { color: '#7C6F66' },
   profileHeader: {

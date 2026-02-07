@@ -26,6 +26,11 @@ export class AuthService {
     return this.issueToken(user.id, user.email);
   }
 
+  async forgotPassword(email: string) {
+    // V1: no email integration yet. Return ok to avoid leaking user existence.
+    return { ok: true };
+  }
+
   private issueToken(userId: string, email: string) {
     const accessToken = this.jwt.sign({ sub: userId, email });
     return { accessToken };

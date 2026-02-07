@@ -5,9 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 export class NotificationsService {
   constructor(private prisma: PrismaService) {}
 
-  list(userId: string) {
+  list(userId: string, unreadOnly = false) {
     return this.prisma.notification.findMany({
-      where: { userId },
+      where: { userId, ...(unreadOnly ? { readAt: null } : {}) },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });

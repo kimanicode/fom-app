@@ -45,6 +45,7 @@
     "@expo-google-fonts/manrope": "^0.2.3",
     "@expo-google-fonts/inter": "^0.2.3",
     "@expo-google-fonts/outfit": "^0.2.3",
+    "socket.io-client": "^4.7.5",
     "react-dom": "19.1.0",
     "expo-constants": "~18.0.12",
     "@react-navigation/bottom-tabs": "^7.4.0"

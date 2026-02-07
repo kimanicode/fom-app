@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { api, apiFetch } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import * as ImagePicker from 'expo-image-picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 export default function CreateQuestScreen() {
@@ -17,7 +17,6 @@ export default function CreateQuestScreen() {
   const [maxParticipants, setMaxParticipants] = useState('8');
   const [vibeTag, setVibeTag] = useState<'chill' | 'active' | 'creative' | 'curious'>('chill');
   const [photo, setPhoto] = useState<any>(null);
-  const insets = useSafeAreaInsets();
   const [createdQuest, setCreatedQuest] = useState<any>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -126,10 +125,8 @@ export default function CreateQuestScreen() {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 16) }]}
-    >
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Create a Quest</Text>
       </View>
@@ -268,12 +265,14 @@ export default function CreateQuestScreen() {
 
       <Button label="Create Quest" onPress={submit} />
       {createdQuest && <Button label="Share Quest" variant="secondary" onPress={shareQuest} />}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9F6F2' },
+  scroll: { flex: 1 },
   content: { padding: 18, gap: 14 },
   header: { marginBottom: 4 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#3C2F25' },

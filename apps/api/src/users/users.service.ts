@@ -61,4 +61,32 @@ export class UsersService {
     });
     return saves.map((s) => s.quest);
   }
+
+  async listJoined(userId: string) {
+    const now = new Date();
+    const participants = await this.prisma.questParticipant.findMany({
+      where: { userId },
+      include: {
+        instance: {
+          include: {
+            template: { include: { location: true } },
+          },
+        },
+      },
+      orderBy: { joinedAt: 'desc' },
+    });
+
+    return participants
+      .filter((p) => {
+        const start = p.instance.startTime;
+        const expire = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+        return now <= expire;
+      })
+      .map((p) => ({
+        instanceId: p.instanceId,
+        quest: p.instance.template,
+        startTime: p.instance.startTime,
+        durationMinutes: p.instance.durationMinutes,
+      }));
+  }
 }

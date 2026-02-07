@@ -21,3 +21,8 @@ export class LoginDto {
   @MinLength(8)
   password!: string;
 }
+
+export class ForgotPasswordDto {
+  @IsEmail()
+  email!: string;
+}

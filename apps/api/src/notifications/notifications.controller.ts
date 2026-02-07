@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { NotificationsService } from './notifications.service';
@@ -9,8 +9,8 @@ export class NotificationsController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  list(@CurrentUser() user: { id: string }) {
-    return this.notifications.list(user.id);
+  list(@CurrentUser() user: { id: string }, @Query('unread') unread?: string) {
+    return this.notifications.list(user.id, unread === '1');
   }
 
   @UseGuards(JwtAuthGuard)

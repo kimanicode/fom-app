@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Location from 'expo-location';
 import { api } from '../../lib/api';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ExploreScreen() {
   const [quests, setQuests] = useState<any[]>([]);
-  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return quests;
@@ -42,12 +43,23 @@ export default function ExploreScreen() {
         const list = await api.listQuests();
         setQuests(list);
       }
+      const unread = await api.notificationsUnread();
+      setUnreadCount((unread as any[]).length || 0);
     };
     load();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      api.notificationsUnread()
+        .then((unread: any) => setUnreadCount((unread as any[]).length || 0))
+        .catch(console.warn);
+    }, [])
+  );
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 16) }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <View style={styles.topRow}>
         <View style={styles.locationPill}>
           <Ionicons name="location-outline" size={14} color="#E56A3C" />
@@ -60,6 +72,11 @@ export default function ExploreScreen() {
           </Pressable>
           <Pressable style={styles.iconButton} onPress={() => router.push('/notifications')}>
             <Ionicons name="notifications-outline" size={18} color="#7C6F66" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
@@ -162,12 +179,14 @@ export default function ExploreScreen() {
           </View>
         ))}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9F6F2' },
+  scroll: { flex: 1 },
   content: { padding: 16, gap: 14 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   locationPill: {
@@ -188,7 +207,21 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#EFE7E0',
+    position: 'relative',
   },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#D62F2F',
+    borderRadius: 999,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
