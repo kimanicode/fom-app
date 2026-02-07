@@ -1,0 +1,238 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  alias        String?
+  ageRange     String?
+  city         String?
+  bio          String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  interests   UserInterest[]
+  questsCreated QuestTemplate[] @relation("QuestCreator")
+  createdInstances QuestInstance[] @relation("QuestInstanceCreator")
+  participants QuestParticipant[]
+  checkins    Checkin[]
+  posts       Post[]
+  likes       Like[]
+  saves       Save[]
+  ratings     Rating[]
+  notifications Notification[]
+
+  reports     Report[] @relation("Reporter")
+  reportedBy  Report[] @relation("ReportedUser")
+
+  blocks      Block[] @relation("Blocker")
+  blockedBy   Block[] @relation("Blocked")
+}
+
+model InterestTag {
+  id    String @id @default(uuid())
+  name  String @unique
+  users UserInterest[]
+}
+
+model UserInterest {
+  userId String
+  tagId  String
+
+  user User @relation(fields: [userId], references: [id])
+  tag  InterestTag @relation(fields: [tagId], references: [id])
+
+  @@id([userId, tagId])
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  placeName String
+  lat       Float
+  lng       Float
+  category  String?
+  createdAt DateTime @default(now())
+
+  quests QuestTemplate[]
+  instances QuestInstance[]
+  posts  Post[]
+}
+
+model QuestTemplate {
+  id              String   @id @default(uuid())
+  creatorId       String
+  title           String
+  description     String
+  vibeTag         String
+  imageUrl        String?
+  locationId      String
+  startTime       DateTime
+  durationMinutes Int
+  maxParticipants Int
+  cost            String   @default("free")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  creator  User     @relation("QuestCreator", fields: [creatorId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
+
+  instances QuestInstance[]
+  saves     Save[]
+  reports   Report[] @relation("ReportedQuest")
+}
+
+model QuestInstance {
+  id              String   @id @default(uuid())
+  templateId      String?
+  creatorId       String?
+  startTime       DateTime
+  durationMinutes Int
+  locationId      String
+  status          String   @default("scheduled")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  template  QuestTemplate? @relation(fields: [templateId], references: [id])
+  creator   User?          @relation("QuestInstanceCreator", fields: [creatorId], references: [id])
+  location  Location       @relation(fields: [locationId], references: [id])
+
+  participants QuestParticipant[]
+  posts        Post[]
+  ratings      Rating[]
+  checkins     Checkin[]
+}
+
+model QuestParticipant {
+  id         String   @id @default(uuid())
+  instanceId String
+  userId     String
+  joinedAt   DateTime @default(now())
+  role       String   @default("participant")
+
+  instance QuestInstance @relation(fields: [instanceId], references: [id])
+  user     User          @relation(fields: [userId], references: [id])
+
+  @@unique([instanceId, userId])
+}
+
+model Checkin {
+  id         String   @id @default(uuid())
+  instanceId String
+  userId     String
+  checkedInAt DateTime @default(now())
+  lat        Float
+  lng        Float
+
+  instance QuestInstance @relation(fields: [instanceId], references: [id])
+  user     User          @relation(fields: [userId], references: [id])
+
+  @@unique([instanceId, userId])
+}
+
+model Post {
+  id              String   @id @default(uuid())
+  instanceId      String
+  userId          String
+  locationId      String
+  mediaUrl        String
+  mediaType       String
+  durationSeconds Int?
+  caption         String?
+  createdAt       DateTime @default(now())
+
+  instance QuestInstance @relation(fields: [instanceId], references: [id])
+  user     User          @relation(fields: [userId], references: [id])
+  location Location      @relation(fields: [locationId], references: [id])
+
+  likes   Like[]
+  reports Report[] @relation("ReportedPost")
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model Save {
+  id        String   @id @default(uuid())
+  questId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  quest QuestTemplate @relation(fields: [questId], references: [id])
+  user  User          @relation(fields: [userId], references: [id])
+
+  @@unique([questId, userId])
+}
+
+model Rating {
+  id         String   @id @default(uuid())
+  instanceId String
+  userId     String
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  instance QuestInstance @relation(fields: [instanceId], references: [id])
+  user     User          @relation(fields: [userId], references: [id])
+
+  @@unique([instanceId, userId])
+}
+
+model Report {
+  id             String   @id @default(uuid())
+  reporterId     String
+  reportedUserId String?
+  reportedQuestId String?
+  reportedPostId String?
+  reason         String
+  createdAt      DateTime @default(now())
+
+  reporter     User           @relation("Reporter", fields: [reporterId], references: [id])
+  reportedUser User?          @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  reportedQuest QuestTemplate? @relation("ReportedQuest", fields: [reportedQuestId], references: [id])
+  reportedPost Post?          @relation("ReportedPost", fields: [reportedPostId], references: [id])
+}
+
+model Block {
+  id        String   @id @default(uuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id])
+  blocked User @relation("Blocked", fields: [blockedId], references: [id])
+
+  @@unique([blockerId, blockedId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}

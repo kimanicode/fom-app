@@ -1,50 +1,120 @@
-# Welcome to your Expo app 👋
+# FOM (V1)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Mobile-first social app for real-life quests. Content is earned: users can only post after completing a quest with geo + time check-in.
 
-## Get started
+## Repo Structure
 
-1. Install dependencies
+- `apps/mobile` � Expo React Native app (TypeScript)
+- `apps/api` � NestJS API (TypeScript)
+- `packages/shared` � shared zod schemas and types
 
-   ```bash
-   npm install
-   ```
+## Prereqs
 
-2. Start the app
+- Node.js 20+
+- pnpm 9+
+- PostgreSQL (Supabase, Neon, or local)
 
-   ```bash
-   npx expo start
-   ```
+## Environment
 
-In the output, you'll find options to open the app in a
+Create env files:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+`apps/api/.env`
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+DATABASE_URL="postgresql://user:password@localhost:5432/fom"
+JWT_SECRET="replace-with-strong-secret"
+PORT=4000
+CLOUDINARY_CLOUD_NAME=""
+CLOUDINARY_API_KEY=""
+CLOUDINARY_API_SECRET=""
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+`apps/mobile/.env`
 
-## Learn more
+```
+EXPO_PUBLIC_API_URL="http://localhost:4000"
+EXPO_PUBLIC_CLOUDINARY_UPLOAD_URL="https://api.cloudinary.com/v1_1/<cloud_name>/auto/upload"
+EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET=""
+EXPO_PUBLIC_MAPS_API_KEY=""
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Setup
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+pnpm install
+pnpm db:migrate
+pnpm seed
+pnpm dev
+pnpm -C apps/mobile start
+```
 
-## Join the community
+- `pnpm dev` starts API and Expo
+- `pnpm db:migrate` runs Prisma migrations
+- `pnpm seed` seeds sample data
 
-Join our community of developers creating universal apps.
+## V1 Behavior Notes
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- **Check-in window:** quest `startTime` � 60 minutes
+- **Check-in radius:** 200 meters
+- **Completion rule (V1):** immediate completion after check-in
+- **Posting:** only after completion
+- **Public locations only:** V1 validates required `placeName` + coordinates; UI includes disclaimer
+
+## Feed Ranking (Rules-Based)
+
+Feed merges upcoming quests and recent posts and ranks by a weighted score.
+
+Pseudo-math:
+
+```
+score_quest = 0.30 * interest_overlap
+           + 0.20 * distance_score
+           + 0.25 * recency_score
+           + 0.15 * popularity_score
+           + 0.10 * redo_score
+
+score_post = 0.35 * distance_score
+          + 0.45 * recency_score
+          + 0.20 * like_score
+```
+
+Inputs:
+
+- `interest_overlap`: user interest keywords found in quest title/description
+- `distance_score`: inverse distance (closer = higher)
+- `recency_score`: newer or nearer start times score higher
+- `popularity_score`: based on max participants (low weight)
+- `redo_score`: number of instances for a template
+- `like_score`: small weight, not a primary rank signal
+
+## API Endpoints (V1)
+
+- `POST /auth/signup`, `POST /auth/login`
+- `GET /users/me`, `POST /users/me`, `PATCH /users/me`
+- `GET /interests`
+- `POST /quests`, `GET /quests`, `GET /quests/:id`
+- `POST /quests/:id/join`
+- `POST /quests/:id/save`
+- `POST /quests/:id/redo`
+- `POST /quest-instances/:id/checkin`
+- `POST /quest-instances/:id/complete`
+- `POST /quest-instances/:id/posts`
+- `POST /quest-instances/:id/rate`
+- `GET /feed`
+- `GET /locations/:id`
+- `POST /reports`
+- `POST /blocks`
+
+## Development Notes
+
+- Mobile app uses `EXPO_PUBLIC_` envs for API, Cloudinary, and Maps keys.
+- Cloudinary uploads are done via unsigned upload preset in the mobile app.
+- You can swap the ranking service with ML later by replacing `apps/api/src/feed/feed.service.ts`.
+
+## Key Files
+
+- `apps/api/prisma/schema.prisma`
+- `apps/api/src/feed/feed.service.ts`
+- `apps/mobile/app/(tabs)/index.tsx`
+- `apps/mobile/app/onboarding.tsx`
+- `packages/shared/src/schemas.ts`
