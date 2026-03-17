@@ -15,7 +15,9 @@ export class ChatController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/chat')
-  send(@Param('id') id: string, @CurrentUser() user: { id: string }, @Body() body: { text: string }) {
-    return this.chat.sendMessage(id, user.id, body.text);
+  async send(@Param('id') id: string, @CurrentUser() user: { id: string }, @Body() body: { text: string }) {
+    const message = await this.chat.sendMessage(id, user.id, body.text);
+    await this.chat.notifyParticipants(id, user.id, message.text);
+    return message;
   }
 }

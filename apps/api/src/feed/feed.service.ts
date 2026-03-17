@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+const QUEST_EXPIRY_WINDOW_MS = 60 * 60 * 1000;
+
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const toRad = (v: number) => (v * Math.PI) / 180;
   const R = 6371;
@@ -36,6 +38,7 @@ export class FeedService {
   }
 
   async getFeed(userId?: string, lat?: number, lng?: number) {
+    const activeQuestCutoff = new Date(Date.now() - QUEST_EXPIRY_WINDOW_MS);
     const interests = userId
       ? await this.prisma.userInterest.findMany({ where: { userId }, include: { tag: true } })
       : [];
@@ -51,9 +54,16 @@ export class FeedService {
       : [];
 
     const quests = await this.prisma.questTemplate.findMany({
+      where: {
+        startTime: { gte: activeQuestCutoff },
+      },
       include: {
         location: true,
-        instances: true,
+        instances: {
+          include: {
+            participants: true,
+          },
+        },
         saves: true,
       },
       orderBy: { startTime: 'asc' },
@@ -77,17 +87,26 @@ export class FeedService {
 
     const scoredQuests = quests
       .filter((q) => !blockedIds.includes(q.creatorId))
-      .map((q) => {
-        const text = `${q.title} ${q.description}`.toLowerCase();
+      .map((quest) => {
+        const q = quest as typeof quest & {
+          enrichedCategory?: string | null;
+          audienceType?: string | null;
+          energyLevel?: string | null;
+          indoorOutdoor?: string | null;
+          enrichmentTags?: string[];
+        };
+        const text =
+          `${q.title} ${q.description} ${q.enrichedCategory ?? ''} ${(q.enrichmentTags ?? []).join(' ')} ${q.audienceType ?? ''} ${q.energyLevel ?? ''} ${q.indoorOutdoor ?? ''}`.toLowerCase();
         const overlapCount = interestNames.filter((name) => text.includes(name)).length;
         const interestOverlap = normalize(overlapCount, Math.max(interestNames.length, 1));
         const distanceScore = lat && lng ? normalize(1 / (1 + haversineKm(lat, lng, q.location.lat, q.location.lng)), 1) : 0;
         const recencyScore = normalize(1 / (1 + Math.abs(q.startTime.getTime() - now) / (1000 * 60 * 60)), 1);
         const popularityScore = normalize(q.maxParticipants, maxQuestParticipants);
         const redoScore = normalize(q.instances.length, maxQuestInstances);
+        const participantsCount = q.instances.reduce((sum, instance) => sum + instance.participants.length, 0);
 
         const score = 0.3 * interestOverlap + 0.2 * distanceScore + 0.25 * recencyScore + 0.15 * popularityScore + 0.1 * redoScore;
-        return { type: 'quest' as const, score, data: q };
+        return { type: 'quest' as const, score, data: { ...q, participantsCount } };
       });
 
     const scoredPosts = posts

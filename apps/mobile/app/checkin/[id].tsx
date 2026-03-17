@@ -4,8 +4,10 @@ import { useLocalSearchParams, router } from 'expo-router';
 import * as Location from 'expo-location';
 import { api } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
+import { useAppTheme } from '../../constants/app-theme';
 
 export default function CheckinScreen() {
+  const { colors } = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [status, setStatus] = useState('Ready to check in');
 
@@ -30,9 +32,9 @@ export default function CheckinScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Check-in</Text>
-      <Text style={styles.muted}>{status}</Text>
+    <View style={[styles.container, { backgroundColor: colors.screen }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Check-in</Text>
+      <Text style={[styles.muted, { color: colors.textMuted }]}>{status}</Text>
       <Button label="Check in" onPress={doCheckin} />
       <Button label="Complete quest" variant="secondary" onPress={doComplete} />
     </View>
@@ -40,7 +42,7 @@ export default function CheckinScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   title: { fontSize: 22, fontWeight: '700' },
-  muted: { color: '#64748B' },
+  muted: {},
 });

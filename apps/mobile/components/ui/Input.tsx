@@ -1,5 +1,5 @@
 import { StyleSheet, TextInput, View, Text } from 'react-native';
-import { theme } from '../../constants/theme';
+import { useAppTheme } from '../../constants/app-theme';
 
 interface InputProps {
   label: string;
@@ -10,14 +10,25 @@ interface InputProps {
 }
 
 export function Input({ label, value, onChangeText, placeholder, secureTextEntry }: InputProps) {
+  const { colors, fonts } = useAppTheme();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: colors.textMuted, fontFamily: fonts.sansMedium }]}>{label}</Text>
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            color: colors.text,
+            fontFamily: fonts.sans,
+          },
+        ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
+        placeholderTextColor={colors.textSoft}
         secureTextEntry={secureTextEntry}
       />
     </View>
@@ -26,14 +37,10 @@ export function Input({ label, value, onChangeText, placeholder, secureTextEntry
 
 const styles = StyleSheet.create({
   container: { marginBottom: 12 },
-  label: { fontSize: 12, color: theme.colors.mutedForeground, marginBottom: 4, fontFamily: theme.fonts.sansMedium },
+  label: { fontSize: 12, marginBottom: 4 },
   input: {
-    backgroundColor: theme.colors.input,
     borderWidth: 1,
-    borderColor: theme.colors.border,
     padding: 10,
     borderRadius: 10,
-    color: theme.colors.foreground,
-    fontFamily: theme.fonts.sans,
   },
 });

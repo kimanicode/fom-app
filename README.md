@@ -21,9 +21,12 @@ Create env files:
 `apps/api/.env`
 
 ```
-DATABASE_URL="postgresql://user:password@localhost:5432/fom"
+DATABASE_URL="postgresql://postgres.<project-ref>:[YOUR-PASSWORD]@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require"
+DIRECT_URL="postgresql://postgres:[YOUR-PASSWORD]@db.<project-ref>.supabase.co:5432/postgres?sslmode=require"
 JWT_SECRET="replace-with-strong-secret"
 PORT=4000
+PRISMA_CONNECT_RETRIES=5
+PRISMA_CONNECT_RETRY_DELAY_MS=3000
 CLOUDINARY_CLOUD_NAME=""
 CLOUDINARY_API_KEY=""
 CLOUDINARY_API_SECRET=""
@@ -36,6 +39,8 @@ EXPO_PUBLIC_API_URL="http://localhost:4000"
 EXPO_PUBLIC_CLOUDINARY_UPLOAD_URL="https://api.cloudinary.com/v1_1/<cloud_name>/auto/upload"
 EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET=""
 EXPO_PUBLIC_MAPS_API_KEY=""
+EXPO_PUBLIC_SUPABASE_URL="https://<project-ref>.supabase.co"
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="<your-supabase-publishable-key>"
 ```
 
 ## Setup
@@ -50,7 +55,12 @@ pnpm -C apps/mobile start
 
 - `pnpm dev` starts API and Expo
 - `pnpm db:migrate` runs Prisma migrations
+- `pnpm db:migrate:deploy` applies committed migrations without creating new ones
 - `pnpm seed` seeds sample data
+
+Health endpoint:
+
+- `GET /health` verifies the API process and Prisma database query path
 
 ## V1 Behavior Notes
 
@@ -107,13 +117,15 @@ Inputs:
 
 ## Development Notes
 
-- Mobile app uses `EXPO_PUBLIC_` envs for API, Cloudinary, and Maps keys.
+- Mobile app uses `EXPO_PUBLIC_` envs for API, Cloudinary, Maps, and Supabase client auth.
+- Supabase client auth should use the publishable key. `EXPO_PUBLIC_SUPABASE_ANON_KEY` is only kept as a backward-compatible fallback.
 - Cloudinary uploads are done via unsigned upload preset in the mobile app.
 - You can swap the ranking service with ML later by replacing `apps/api/src/feed/feed.service.ts`.
 
 ## Key Files
 
 - `apps/api/prisma/schema.prisma`
+- `docs/supabase-migration.md`
 - `apps/api/src/feed/feed.service.ts`
 - `apps/mobile/app/(tabs)/index.tsx`
 - `apps/mobile/app/onboarding.tsx`

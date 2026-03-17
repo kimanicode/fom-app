@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { api } from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useAppTheme } from '../constants/app-theme';
 
 export default function NotificationsScreen() {
+  const { colors } = useAppTheme();
   const [items, setItems] = useState<any[]>([]);
 
   useEffect(() => {
@@ -12,25 +15,33 @@ export default function NotificationsScreen() {
   }, []);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.screen }]} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.title}>Notifications</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Notifications</Text>
       </View>
       {items.map((n) => (
-        <View key={n.id} style={styles.card}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="notifications" size={16} color="#E56A3C" />
+        <Pressable
+          key={n.id}
+          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={() => {
+            const instanceId = n?.data?.instanceId;
+            if (n.type === 'chat_message' && instanceId) {
+              router.push(`/chat/${instanceId}`);
+            }
+          }}>
+          <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
+            <Ionicons name="notifications" size={16} color={colors.primary} />
           </View>
           <View style={styles.body}>
-            <Text style={styles.cardTitle}>{n.title}</Text>
-            <Text style={styles.cardBody}>{n.body}</Text>
-            <Text style={styles.meta}>{new Date(n.createdAt).toLocaleString()}</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>{n.title}</Text>
+            <Text style={[styles.cardBody, { color: colors.textMuted }]}>{n.body}</Text>
+            <Text style={[styles.meta, { color: colors.textSoft }]}>{new Date(n.createdAt).toLocaleString()}</Text>
           </View>
-        </View>
+        </Pressable>
       ))}
       {items.length === 0 && (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>No notifications yet.</Text>
+        <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.emptyText, { color: colors.textMuted }]}>No notifications yet.</Text>
         </View>
       )}
     </ScrollView>

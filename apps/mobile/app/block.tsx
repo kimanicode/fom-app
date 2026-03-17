@@ -3,8 +3,10 @@ import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
 import { api } from '../lib/api';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { useAppTheme } from '../constants/app-theme';
 
 export default function BlockScreen() {
+  const { colors } = useAppTheme();
   const [blockedId, setBlockedId] = useState('');
 
   const submit = async () => {
@@ -17,8 +19,8 @@ export default function BlockScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Block User</Text>
+    <ScrollView style={[styles.container, { backgroundColor: colors.screen }]} contentContainerStyle={styles.content}>
+      <Text style={[styles.title, { color: colors.text }]}>Block User</Text>
       <Input label="User ID to block" value={blockedId} onChangeText={setBlockedId} />
       <Button label="Block" onPress={submit} />
     </ScrollView>
@@ -26,7 +28,7 @@ export default function BlockScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1 },
   content: { padding: 20, gap: 12 },
   title: { fontSize: 22, fontWeight: '700' },
 });

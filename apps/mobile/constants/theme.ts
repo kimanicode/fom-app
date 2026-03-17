@@ -44,3 +44,22 @@ export const theme = {
     },
   },
 };
+
+export const Colors = {
+  light: {
+    text: theme.colors.foreground,
+    background: theme.colors.background,
+    tint: theme.colors.primary,
+    icon: theme.colors.mutedForeground,
+    tabIconDefault: theme.colors.mutedForeground,
+    tabIconSelected: theme.colors.primary,
+  },
+  dark: {
+    text: '#ECEDEE',
+    background: '#151718',
+    tint: '#FFFFFF',
+    icon: '#9BA1A6',
+    tabIconDefault: '#9BA1A6',
+    tabIconSelected: '#FFFFFF',
+  },
+} as const;

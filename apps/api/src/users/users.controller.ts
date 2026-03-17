@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
-import { UpdateProfileDto } from './users.dto';
+import { RequestWithdrawalDto, UpdateProfileDto } from './users.dto';
 import { UsersService } from './users.service';
 
 @Controller()
@@ -29,6 +29,24 @@ export class UsersController {
   @Get('users/me/joined')
   getJoined(@CurrentUser() user: { id: string }) {
     return this.users.listJoined(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('users/me/created')
+  getCreated(@CurrentUser() user: { id: string }) {
+    return this.users.listCreated(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('users/me/wallet')
+  getWallet(@CurrentUser() user: { id: string }) {
+    return this.users.getWallet(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('users/me/withdrawals')
+  requestWithdrawal(@CurrentUser() user: { id: string }, @Body() dto: RequestWithdrawalDto) {
+    return this.users.requestWithdrawal(user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "11dca862-b6da-4432-ac19-dbe89e8e566c"
+      }
+    },
+    "android": {
+      "package": "com.kimanidev.fommonorepo"
+    }
+  }
+}

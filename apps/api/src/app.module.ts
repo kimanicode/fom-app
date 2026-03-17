@@ -12,6 +12,9 @@ import { BlocksModule } from './blocks/blocks.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MediaModule } from './media/media.module';
 import { ChatModule } from './chat/chat.module';
+import { HealthModule } from './health/health.module';
+import { TaxonomyModule } from './taxonomy/taxonomy.module';
+import { RecommendationsModule } from './recommendations/recommendations.module';
 
 @Module({
   imports: [
@@ -28,6 +31,9 @@ import { ChatModule } from './chat/chat.module';
     NotificationsModule,
     MediaModule,
     ChatModule,
+    HealthModule,
+    TaxonomyModule,
+    RecommendationsModule,
   ],
 })
 export class AppModule {}

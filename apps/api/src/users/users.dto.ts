@@ -1,4 +1,4 @@
-import { IsArray, ArrayNotEmpty, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsArray, ArrayNotEmpty, IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min, MinLength } from 'class-validator';
 
 const AGE_RANGES = ['18-24', '25-34', '35-44', '45-54', '55+'] as const;
 
@@ -18,10 +18,25 @@ export class UpdateProfileDto {
   @IsIn(AGE_RANGES)
   ageRange!: string;
 
+  @IsOptional()
   @IsArray()
-  @ArrayNotEmpty()
   @IsUUID('4', { each: true })
   interests!: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  selectedCategoryIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  selectedSubcategoryIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  selectedInterestIds?: string[];
 
   @IsString()
   @MinLength(2)
@@ -36,4 +51,44 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   avatarUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  intentTags?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  vibePreferences?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  audienceAffinities?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  locationPreferences?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  timePreferences?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  pricePreferences?: string[];
+}
+
+export class RequestWithdrawalDto {
+  @IsInt()
+  @Min(10000)
+  amountCents!: number;
+
+  @IsString()
+  @MaxLength(120)
+  destination!: string;
 }

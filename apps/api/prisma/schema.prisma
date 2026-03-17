@@ -5,10 +5,12 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
   id           String   @id @default(uuid())
+  supabaseAuthId String @unique
   email        String   @unique
   passwordHash String
   name         String?
@@ -31,6 +33,11 @@ model User {
   ratings     Rating[]
   notifications Notification[]
   messages    ChatMessage[]
+  paymentsMade PaymentTransaction[] @relation("PaymentPayer")
+  payoutsEarned PaymentTransaction[] @relation("PaymentCreator")
+  withdrawalRequests WithdrawalRequest[]
+  preferenceProfile UserPreferenceProfile?
+  behaviorSignals UserBehaviorSignal[]
 
   reports     Report[] @relation("Reporter")
   reportedBy  Report[] @relation("ReportedUser")
@@ -40,14 +47,30 @@ model User {
 }
 
 model InterestTag {
-  id    String @id @default(uuid())
-  name  String @unique
-  users UserInterest[]
+  id       String         @id @default(uuid())
+  name     String
+  slug     String         @unique
+  group    String         @default("interest")
+  level    InterestLevel?
+  parentId String?
+  metadata Json?
+  parent   InterestTag?   @relation("InterestHierarchy", fields: [parentId], references: [id])
+  children InterestTag[]  @relation("InterestHierarchy")
+  users    UserInterest[]
+  quests   QuestInterest[]
+  categoryQuests QuestTemplate[] @relation("QuestCategory")
+  subcategoryQuests QuestTemplate[] @relation("QuestSubcategory")
+
+  @@unique([group, name, parentId])
 }
 
 model UserInterest {
   userId String
   tagId  String
+  source InterestSource @default(explicit)
+  weight Float @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
   tag  InterestTag @relation(fields: [tagId], references: [id])
@@ -80,15 +103,36 @@ model QuestTemplate {
   durationMinutes Int
   maxParticipants Int
   cost            String   @default("free")
+  costAmountCents Int      @default(0)
+  currency        String   @default("USD")
+  categoryId      String?
+  subcategoryId   String?
+  intentTags      String[]
+  vibeTags        String[]
+  audienceTags    String[]
+  locationTags    String[]
+  timeTags        String[]
+  priceTag        String?
+  metadataQualityScore Float @default(0)
+  enrichedCategory String?
+  audienceType    String?
+  energyLevel     String?
+  indoorOutdoor   String?
+  enrichmentTags  String[] @default([])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   creator  User     @relation("QuestCreator", fields: [creatorId], references: [id])
   location Location @relation(fields: [locationId], references: [id])
+  categoryTag InterestTag? @relation("QuestCategory", fields: [categoryId], references: [id])
+  subcategoryTag InterestTag? @relation("QuestSubcategory", fields: [subcategoryId], references: [id])
 
   instances QuestInstance[]
   saves     Save[]
   reports   Report[] @relation("ReportedQuest")
+  payments  PaymentTransaction[]
+  interestTags QuestInterest[]
+  behaviorSignals UserBehaviorSignal[]
 }
 
 model QuestInstance {
@@ -111,6 +155,7 @@ model QuestInstance {
   ratings      Rating[]
   checkins     Checkin[]
   messages     ChatMessage[]
+  payments     PaymentTransaction[]
 }
 
 model QuestParticipant {
@@ -250,4 +295,110 @@ model ChatMessage {
   user     User          @relation(fields: [userId], references: [id])
 
   @@index([instanceId, createdAt])
+}
+
+model QuestInterest {
+  id      String @id @default(uuid())
+  questId String
+  tagId   String
+  weight  Float  @default(1)
+  source  String @default("creator")
+  createdAt DateTime @default(now())
+
+  quest QuestTemplate @relation(fields: [questId], references: [id])
+  tag   InterestTag   @relation(fields: [tagId], references: [id])
+
+  @@unique([questId, tagId])
+  @@index([tagId, questId])
+}
+
+model UserPreferenceProfile {
+  userId String @id
+  selectedCategoryIds String[]
+  selectedSubcategoryIds String[]
+  selectedInterestIds String[]
+  intentTags String[]
+  vibePreferences String[]
+  audienceAffinities String[]
+  locationPreferences String[]
+  timePreferences String[]
+  pricePreferences String[]
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model UserBehaviorSignal {
+  id         String @id @default(uuid())
+  userId     String
+  questId    String?
+  signalType BehaviorSignalType
+  strength   Float @default(1)
+  context    Json?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  quest QuestTemplate? @relation(fields: [questId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([questId, signalType])
+}
+
+model PaymentTransaction {
+  id               String   @id @default(uuid())
+  questId          String
+  questInstanceId  String
+  payerId          String
+  creatorId        String
+  amountCents      Int
+  platformFeeCents Int
+  creatorAmountCents Int
+  currency         String   @default("USD")
+  status           String   @default("captured")
+  paymentMethod    String?
+  providerRef      String?
+  createdAt        DateTime @default(now())
+
+  quest   QuestTemplate @relation(fields: [questId], references: [id])
+  questInstance QuestInstance @relation(fields: [questInstanceId], references: [id])
+  payer   User @relation("PaymentPayer", fields: [payerId], references: [id])
+  creator User @relation("PaymentCreator", fields: [creatorId], references: [id])
+
+  @@unique([questId, payerId])
+  @@unique([questInstanceId, payerId])
+  @@index([creatorId, createdAt])
+}
+
+model WithdrawalRequest {
+  id          String   @id @default(uuid())
+  creatorId   String
+  amountCents Int
+  currency    String   @default("USD")
+  destination String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  processedAt DateTime?
+
+  creator User @relation(fields: [creatorId], references: [id])
+
+  @@index([creatorId, createdAt])
+}
+
+enum InterestLevel {
+  category
+  subcategory
+  interest
+}
+
+enum InterestSource {
+  explicit
+  inferred
+}
+
+enum BehaviorSignalType {
+  viewed
+  saved
+  joined
+  paid
+  dismissed
 }

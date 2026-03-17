@@ -22,6 +22,12 @@ export class LoginDto {
   password!: string;
 }
 
+export class GoogleAuthDto {
+  @IsString()
+  @MinLength(10)
+  idToken!: string;
+}
+
 export class ForgotPasswordDto {
   @IsEmail()
   email!: string;

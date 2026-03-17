@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { api } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '../../store/auth';
+import { requireAuth } from '../../lib/require-auth';
+import { useAppTheme } from '../../constants/app-theme';
 
 export default function QuestDetailScreen() {
+  const { colors } = useAppTheme();
   const { id, instanceId: instanceParam, joined: joinedParam } = useLocalSearchParams<{
     id: string;
     instanceId?: string;
@@ -16,9 +20,11 @@ export default function QuestDetailScreen() {
   const [instanceId, setInstanceId] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [joinedCount, setJoinedCount] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
-  const insets = useSafeAreaInsets();
-  const topOffset = Math.max(insets.top, 16);
+  const [savePending, setSavePending] = useState(false);
+  const [joinPending, setJoinPending] = useState(false);
+  const { token } = useAuthStore();
 
   useEffect(() => {
     if (!id) return;
@@ -34,14 +40,18 @@ export default function QuestDetailScreen() {
     if (joinedParam === '1') {
       setJoined(true);
     }
-    api.getJoinedQuests().then((list: any) => {
-      const hit = (list as any[]).find((item) => item.quest?.id === String(id));
-      if (hit) {
-        setJoined(true);
-        setInstanceId(hit.instanceId);
-      }
-    });
-  }, [instanceParam, joinedParam, id]);
+    if (!token) return;
+    api
+      .getJoinedQuests()
+      .then((list: any) => {
+        const hit = (list as any[]).find((item) => item.quest?.id === String(id));
+        if (hit) {
+          setJoined(true);
+          setInstanceId(hit.instanceId);
+        }
+      })
+      .catch(console.warn);
+  }, [instanceParam, joinedParam, id, token]);
 
   const startDate = useMemo(() => {
     if (!quest?.startTime) return '';
@@ -55,16 +65,82 @@ export default function QuestDetailScreen() {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }, [quest?.startTime]);
 
+  const isPaidQuest = quest?.cost === 'paid' && Number(quest?.costAmountCents || 0) > 0;
+  const joinLabel = 'Join Quest';
+  const spotsLeft = Math.max(0, Number(quest?.maxParticipants || 0) - joinedCount);
+
+  useEffect(() => {
+    if (!quest) return;
+    const count = (quest.instances || []).reduce(
+      (sum: number, instance: any) => sum + Number(instance?.participants?.length || 0),
+      0
+    );
+    setJoinedCount(count);
+  }, [quest]);
+
+  const handleSave = async () => {
+    if (!requireAuth('Sign in to save quests.')) return;
+    if (savePending) return;
+
+    const previousSaved = saved;
+    const nextSaved = !previousSaved;
+
+    setSavePending(true);
+    setSaved(nextSaved);
+    setToast(nextSaved ? 'Saved successfully' : 'Removed from saved');
+    setTimeout(() => setToast(null), 1500);
+
+    try {
+      const res = await api.saveQuest(quest.id);
+      setSaved(Boolean(res.saved));
+      setToast(res.saved ? 'Saved successfully' : 'Removed from saved');
+      setTimeout(() => setToast(null), 1500);
+    } catch (e: any) {
+      setSaved(previousSaved);
+      setToast(null);
+      Alert.alert('Unable to save quest', e?.message || 'Please try again.');
+    } finally {
+      setSavePending(false);
+    }
+  };
+
+  const handleJoin = async () => {
+    if (!requireAuth('Sign in to join this quest.')) return;
+    if (joinPending || joined) return;
+
+    const previousJoined = joined;
+    const previousCount = joinedCount;
+    const nextCount = Math.min(Number(quest.maxParticipants || previousCount + 1), previousCount + 1);
+
+    setJoinPending(true);
+    setJoined(true);
+    setJoinedCount(nextCount);
+
+    try {
+      const res = await api.joinQuest(
+        quest.id,
+        isPaidQuest ? { paymentMethod: 'in_app_wallet' } : undefined
+      );
+      setInstanceId(res.instanceId);
+    } catch (e: any) {
+      setJoined(previousJoined);
+      setJoinedCount(previousCount);
+      Alert.alert('Unable to join quest', e?.message || 'Please try again.');
+    } finally {
+      setJoinPending(false);
+    }
+  };
+
   if (!quest) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.muted}>Loading quest...</Text>
+      <View style={[styles.container, { backgroundColor: colors.screen }]}>
+        <Text style={[styles.muted, { color: colors.textMuted }]}>Loading quest...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.screen }]} edges={['top']}>
       <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 24 }}>
       <View style={styles.hero}>
         <Image
@@ -76,37 +152,32 @@ export default function QuestDetailScreen() {
           style={styles.heroImage}
         />
         <View style={styles.heroOverlay} />
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={18} color="#3C2F25" />
+        <Pressable style={[styles.backButton, { backgroundColor: colors.surface }]} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={18} color={colors.text} />
         </Pressable>
         <View style={styles.heroActions}>
           <Pressable
-            style={styles.iconButton}
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
             onPress={() =>
               Share.share({
                 message: `Join my quest: ${quest.title}\n${quest.description}\nLocation: ${quest.location?.placeName || ''}\nLink: fom://quest/${quest.id}`,
               })
             }>
-            <Ionicons name="share-social-outline" size={18} color="#3C2F25" />
+            <Ionicons name="share-social-outline" size={18} color={colors.text} />
           </Pressable>
           <Pressable
-            style={styles.iconButton}
-            onPress={async () => {
-              const res = await api.saveQuest(quest.id);
-              setSaved(res.saved);
-              setToast(res.saved ? 'Saved successfully' : 'Removed from saved');
-              setTimeout(() => setToast(null), 1500);
-            }}>
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
+            onPress={handleSave}>
             <Ionicons
               name={saved ? 'bookmark' : 'bookmark-outline'}
               size={18}
-              color={saved ? '#2F6B4F' : '#3C2F25'}
+              color={saved ? colors.success : colors.text}
             />
           </Pressable>
         </View>
         <View style={styles.heroContent}>
-          <View style={styles.vibeTag}>
-            <Text style={styles.vibeText}>{quest.vibeTag}</Text>
+          <View style={[styles.vibeTag, { backgroundColor: colors.successSoft }]}>
+            <Text style={[styles.vibeText, { color: colors.success }]}>{quest.vibeTag}</Text>
           </View>
           <Text style={styles.heroTitle}>{quest.title}</Text>
           <Text style={styles.heroSubtitle}>Hosted by {quest.creator?.alias || 'Host'}</Text>
@@ -114,87 +185,105 @@ export default function QuestDetailScreen() {
       </View>
 
       <View style={styles.sectionGrid}>
-        <View style={styles.infoCard}>
-          <View style={styles.infoIcon}>
-            <Ionicons name="calendar" size={16} color="#6E6158" />
+        <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.infoIcon, { backgroundColor: colors.surfaceMuted }]}>
+            <Ionicons name="calendar" size={16} color={colors.textMuted} />
           </View>
-          <Text style={styles.infoLabel}>Date</Text>
-          <Text style={styles.infoValue}>{startDate}</Text>
+          <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Date</Text>
+          <Text style={[styles.infoValue, { color: colors.text }]}>{startDate}</Text>
         </View>
-        <View style={styles.infoCard}>
-          <View style={styles.infoIcon}>
-            <Ionicons name="time" size={16} color="#6E6158" />
+        <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.infoIcon, { backgroundColor: colors.surfaceMuted }]}>
+            <Ionicons name="time" size={16} color={colors.textMuted} />
           </View>
-          <Text style={styles.infoLabel}>Time</Text>
-          <Text style={styles.infoValue}>{startTime}</Text>
+          <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Time</Text>
+          <Text style={[styles.infoValue, { color: colors.text }]}>{startTime}</Text>
+        </View>
+        <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.infoIcon, { backgroundColor: colors.surfaceMuted }]}>
+            <Ionicons name="card" size={16} color={colors.textMuted} />
+          </View>
+          <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Price</Text>
+          <Text style={[styles.infoValue, { color: colors.text }]}>
+            {isPaidQuest ? `KSh ${Math.round(Number(quest?.costAmountCents || 0) / 100)}` : 'Free'}
+          </Text>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>About this Quest</Text>
-        <Text style={styles.sectionBody}>{quest.description}</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>About this Quest</Text>
+        <Text style={[styles.sectionBody, { color: colors.textMuted }]}>{quest.description}</Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Location</Text>
-        <View style={styles.locationCard}>
-          <View style={styles.locationIcon}>
-            <Ionicons name="location-outline" size={16} color="#2F6B4F" />
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Location</Text>
+        <View style={[styles.locationCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.locationIcon, { backgroundColor: colors.successSoft }]}>
+            <Ionicons name="location-outline" size={16} color={colors.success} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.locationTitle}>{quest.location.placeName}</Text>
-            <Text style={styles.locationMeta}>Public location</Text>
-            <Text style={styles.locationDistance}>2.3 km away</Text>
+            <Text style={[styles.locationTitle, { color: colors.text }]}>{quest.location.placeName}</Text>
+            <Text style={[styles.locationMeta, { color: colors.textMuted }]}>Public location</Text>
+            <Text style={[styles.locationDistance, { color: colors.success }]}>2.3 km away</Text>
           </View>
-          <View style={styles.locationAction}>
-            <Ionicons name="navigate" size={14} color="#2F6B4F" />
+          <View style={[styles.locationAction, { backgroundColor: colors.successSoft }]}>
+            <Ionicons name="navigate" size={14} color={colors.success} />
           </View>
         </View>
       </View>
 
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Who's Going</Text>
-          <Text style={styles.sectionMeta}>5/8</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Who&apos;s Going</Text>
+          <Text style={[styles.sectionMeta, { color: colors.textMuted }]}>
+            {joinedCount}/{quest.maxParticipants} ({spotsLeft} spots left)
+          </Text>
         </View>
         <View style={styles.avatarRow}>
           {['A', 'B', 'C', 'D', 'E'].map((letter) => (
-            <View key={letter} style={styles.smallAvatar}>
-              <Text style={styles.smallAvatarText}>{letter}</Text>
+            <View key={letter} style={[styles.smallAvatar, { backgroundColor: colors.chip }]}>
+              <Text style={[styles.smallAvatarText, { color: colors.text }]}>{letter}</Text>
             </View>
           ))}
-          <View style={[styles.smallAvatar, styles.addAvatar]}>
-            <Text style={styles.addAvatarText}>+3</Text>
+          <View style={[styles.smallAvatar, styles.addAvatar, { backgroundColor: colors.surface, borderColor: colors.borderStrong }]}>
+            <Text style={[styles.addAvatarText, { color: colors.textMuted }]}>+3</Text>
           </View>
         </View>
       </View>
 
       {/* Chat CTA is handled in the bottom bar when joined */}
+      {isPaidQuest && (
+        <View style={styles.amountRow}>
+          <Text style={[styles.paidAmountText, { color: colors.success }]}>
+            KSh {Math.round(Number(quest?.costAmountCents || 0) / 100)}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.bottomBar}>
-        <Pressable style={styles.circleAction} onPress={() => api.saveQuest(quest.id)}>
-          <Ionicons name="bookmark-outline" size={18} color="#3C2F25" />
+        <Pressable
+          style={[styles.circleAction, { backgroundColor: colors.surfaceMuted }]}
+          onPress={handleSave}>
+          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.success : colors.text} />
         </Pressable>
         {joined && instanceId ? (
           <Pressable
-            style={styles.primaryChat}
+            style={[styles.primaryChat, { backgroundColor: colors.success }]}
             onPress={() => router.push(`/chat/${instanceId}`)}>
             <Text style={styles.primaryChatText}>Open Quest Chat</Text>
           </Pressable>
         ) : (
-          <Button
-            label="Join Quest"
-            variant="primary"
-            onPress={async () => {
-              const res = await api.joinQuest(quest.id);
-              setInstanceId(res.instanceId);
-              setJoined(true);
-            }}
-          />
+          <View style={styles.joinBlock}>
+            <Button
+              label={joinPending ? 'Joining...' : joinLabel}
+              variant="primary"
+              onPress={handleJoin}
+            />
+          </View>
         )}
       </View>
       {toast && (
-        <View style={styles.toast}>
+        <View style={[styles.toast, { backgroundColor: colors.success }]}>
           <Text style={styles.toastText}>{toast}</Text>
         </View>
       )}
@@ -204,7 +293,7 @@ export default function QuestDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9F6F2' },
+  container: { flex: 1 },
   scroll: { flex: 1 },
   hero: { position: 'relative' },
   heroImage: { width: '100%', height: 260 },
@@ -251,6 +340,7 @@ const styles = StyleSheet.create({
   heroSubtitle: { fontSize: 12, color: '#F0E6DE' },
   sectionGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     paddingHorizontal: 16,
     marginTop: 16,
@@ -331,6 +421,9 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: 'center',
   },
+  amountRow: { paddingHorizontal: 16, marginTop: 12 },
+  joinBlock: { flex: 1, gap: 4 },
+  paidAmountText: { fontSize: 15, color: '#2F6B4F', textAlign: 'left', fontWeight: '700' },
   circleAction: {
     width: 44,
     height: 44,

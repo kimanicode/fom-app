@@ -1,4 +1,3 @@
-import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
   MessageBody,
@@ -8,19 +7,20 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
+import { TokenVerifierService } from '../auth/token-verifier.service';
 
 @WebSocketGateway({ cors: { origin: '*', credentials: true } })
 export class ChatGateway {
   @WebSocketServer() server!: Server;
 
-  constructor(private chat: ChatService, private jwt: JwtService) {}
+  constructor(private chat: ChatService, private tokenVerifier: TokenVerifierService) {}
 
-  private getUserId(socket: Socket) {
+  private async getUserId(socket: Socket) {
     const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ', '');
     if (!token) return null;
     try {
-      const payload: any = this.jwt.verify(token);
-      return payload?.sub as string;
+      const payload = await this.tokenVerifier.verify(token);
+      return payload.id;
     } catch {
       return null;
     }
@@ -31,7 +31,7 @@ export class ChatGateway {
     @ConnectedSocket() socket: Socket,
     @MessageBody() data: { instanceId: string }
   ) {
-    const userId = this.getUserId(socket);
+    const userId = await this.getUserId(socket);
     if (!userId) {
       socket.emit('error', { message: 'unauthorized' });
       return;
@@ -44,7 +44,7 @@ export class ChatGateway {
     @ConnectedSocket() socket: Socket,
     @MessageBody() data: { instanceId: string; text: string }
   ) {
-    const userId = this.getUserId(socket);
+    const userId = await this.getUserId(socket);
     if (!userId) {
       socket.emit('error', { message: 'unauthorized' });
       return;
