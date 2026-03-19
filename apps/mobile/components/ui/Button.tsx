@@ -1,18 +1,31 @@
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { useAppTheme } from '../../constants/app-theme';
 
 interface ButtonProps {
   label: string;
-  onPress: () => void;
+  onPress: () => void | Promise<void>;
   variant?: 'primary' | 'secondary';
   loading?: boolean;
   disabled?: boolean;
 }
 
 export function Button({ label, onPress, variant = 'primary', loading = false, disabled = false }: ButtonProps) {
+  const [internalLoading, setInternalLoading] = useState(false);
   const { colors, fonts } = useAppTheme();
-  const isInactive = loading || disabled;
+  const resolvedLoading = loading || internalLoading;
+  const isInactive = resolvedLoading || disabled;
   const textColor = variant === 'secondary' ? colors.text : colors.primaryContrast;
+
+  const handlePress = () => {
+    const result = onPress();
+    if (!result || typeof (result as Promise<void>).then !== 'function') {
+      return;
+    }
+
+    setInternalLoading(true);
+    Promise.resolve(result).finally(() => setInternalLoading(false));
+  };
 
   return (
     <Pressable
@@ -22,9 +35,9 @@ export function Button({ label, onPress, variant = 'primary', loading = false, d
         variant === 'secondary' && { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
         isInactive && styles.inactive,
       ]}
-      onPress={onPress}
+      onPress={handlePress}
       disabled={isInactive}>
-      {loading ? (
+      {resolvedLoading ? (
         <ActivityIndicator size="small" color={textColor} />
       ) : (
         <Text

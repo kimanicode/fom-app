@@ -13,6 +13,7 @@ import { requireAuth } from '../../lib/require-auth';
 import { DEFAULT_LOCATION_LABEL, getCurrentLocationDetails } from '../../lib/location';
 import { useAppTheme } from '../../constants/app-theme';
 import { SwipeTabsScreen } from '../../components/navigation/SwipeTabsScreen';
+import { TabSkeletonScreen } from '../../components/ui/TabSkeletonScreen';
 
 const FEED_STALE_MS = 2 * 60 * 1000;
 const FEED_CACHE_KEY = 'feed_cache';
@@ -274,9 +275,6 @@ export default function FeedScreen() {
         </View>
         <Text style={[styles.brand, { color: colors.primary }]}>FOM</Text>
         <View style={styles.iconRow}>
-          <Pressable style={[styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Ionicons name="search" size={18} color={colors.textMuted} />
-          </Pressable>
           <Pressable
             style={[styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={() => {
@@ -457,9 +455,6 @@ export default function FeedScreen() {
   };
 
   const renderQuestEmpty = () => {
-    if (loading && items.length === 0) {
-      return <Text style={[styles.muted, { color: colors.textMuted }]}>Loading your quests...</Text>;
-    }
     if (!loading && filteredQuestItems.length === 0 && query.trim().length > 0) {
       return <Text style={[styles.muted, { color: colors.textMuted }]}>No matching results for &quot;{query}&quot;.</Text>;
     }
@@ -468,6 +463,14 @@ export default function FeedScreen() {
     }
     return null;
   };
+
+  if (loading && items.length === 0) {
+    return (
+      <SwipeTabsScreen tab="index">
+        <TabSkeletonScreen variant="feed" />
+      </SwipeTabsScreen>
+    );
+  }
 
   if (segment === 'joined') {
     return (

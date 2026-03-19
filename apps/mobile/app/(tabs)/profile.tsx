@@ -12,6 +12,7 @@ import { DEFAULT_LOCATION_LABEL, getCurrentLocationDetails } from '../../lib/loc
 import { theme } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
 import { SwipeTabsScreen } from '../../components/navigation/SwipeTabsScreen';
+import { TabSkeletonScreen } from '../../components/ui/TabSkeletonScreen';
 
 const palette = {
   light: {
@@ -199,9 +200,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <SwipeTabsScreen tab="profile">
-        <View style={[styles.container, { backgroundColor: colors.screen }]}>
-          <Text style={[styles.muted, { color: colors.muted }]}>Loading profile...</Text>
-        </View>
+        <TabSkeletonScreen variant="profile" />
       </SwipeTabsScreen>
     );
   }

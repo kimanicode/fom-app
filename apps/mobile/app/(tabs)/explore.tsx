@@ -11,6 +11,7 @@ import { DEFAULT_LOCATION_LABEL, getCurrentLocationDetails } from '../../lib/loc
 import { theme } from '../../constants/theme';
 import { useAppTheme } from '../../constants/app-theme';
 import { SwipeTabsScreen } from '../../components/navigation/SwipeTabsScreen';
+import { TabSkeletonScreen } from '../../components/ui/TabSkeletonScreen';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STOP_WORDS = new Set([
@@ -207,6 +208,14 @@ export default function ExploreScreen() {
 
   const openQuest = (id: string) => router.push(`/quest/${id}`);
 
+  if (loading) {
+    return (
+      <SwipeTabsScreen tab="explore">
+        <TabSkeletonScreen variant="explore" />
+      </SwipeTabsScreen>
+    );
+  }
+
   const renderQuestCard = (quest: Quest, meta: string, fallback: string) => (
     <Pressable
       key={quest.id}
@@ -285,7 +294,6 @@ export default function ExploreScreen() {
           </View>
         </View>
 
-        {loading && <Text style={[styles.stateText, { color: colors.textMuted }]}>Loading explore quests...</Text>}
         {!loading && quests.length === 0 && <Text style={[styles.stateText, { color: colors.textMuted }]}>No quests available right now.</Text>}
 
         {!loading && (

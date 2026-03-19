@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/auth';
 import { requireAuth } from '../../lib/require-auth';
 import { useAppTheme } from '../../constants/app-theme';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 export default function QuestDetailScreen() {
   const { colors } = useAppTheme();
@@ -133,9 +134,79 @@ export default function QuestDetailScreen() {
 
   if (!quest) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.screen }]}>
-        <Text style={[styles.muted, { color: colors.textMuted }]}>Loading quest...</Text>
-      </View>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.screen }]} edges={['top']}>
+        <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 24 }}>
+          <View style={styles.hero}>
+            <Skeleton height={260} radius={0} />
+            <Pressable style={[styles.backButton, { backgroundColor: colors.surface }]} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={18} color={colors.text} />
+            </Pressable>
+            <View style={styles.heroActions}>
+              <View style={[styles.iconButton, { backgroundColor: colors.surface }]}>
+                <Ionicons name="share-social-outline" size={18} color={colors.textMuted} />
+              </View>
+              <View style={[styles.iconButton, { backgroundColor: colors.surface }]}>
+                <Ionicons name="bookmark-outline" size={18} color={colors.textMuted} />
+              </View>
+            </View>
+            <View style={styles.heroContent}>
+              <Skeleton height={24} width={86} radius={999} />
+              <Skeleton height={28} width="72%" />
+              <Skeleton height={14} width="38%" />
+            </View>
+          </View>
+
+          <View style={styles.sectionGrid}>
+            {[0, 1, 2].map((item) => (
+              <View key={item} style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Skeleton height={28} width={28} radius={14} />
+                <Skeleton height={12} width="42%" />
+                <Skeleton height={14} width="72%" />
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.section}>
+            <Skeleton height={18} width="38%" />
+            <Skeleton height={14} width="96%" />
+            <Skeleton height={14} width="88%" />
+            <Skeleton height={14} width="74%" />
+          </View>
+
+          <View style={styles.section}>
+            <Skeleton height={18} width="28%" />
+            <View style={[styles.locationCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Skeleton height={28} width={28} radius={14} />
+              <View style={{ flex: 1, gap: 8 }}>
+                <Skeleton height={16} width="68%" />
+                <Skeleton height={12} width="46%" />
+                <Skeleton height={12} width="28%" />
+              </View>
+              <Skeleton height={28} width={28} radius={14} />
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Skeleton height={18} width="34%" />
+            <View style={styles.avatarRow}>
+              {[0, 1, 2, 3, 4, 5].map((item) => (
+                <Skeleton key={item} height={34} width={34} radius={17} />
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.amountRow}>
+            <Skeleton height={18} width={92} />
+          </View>
+
+          <View style={styles.bottomBar}>
+            <Skeleton height={44} width={44} radius={22} />
+            <View style={styles.joinBlock}>
+              <Skeleton height={44} radius={14} />
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
